@@ -1,7 +1,8 @@
+from __future__ import unicode_literals, print_function
 import argparse
 import dxpy
-from pprint import pprint
 import json
+import sys
 import bz2
 from dxpy.utils.resolver import resolve_existing_path
 
@@ -14,6 +15,10 @@ def fileID2manifest(fdetails, project):
     """
     if not fdetails:
         raise "Describe output for a file is None"
+
+    if 'parts' not in fdetails:
+        print(fdetails['id'], "has no parts", file=sys.stderr)
+        return
 
     # TODO: oddly this pruning seemed necessary when doing the system describe not perhaps not with list_folder
     pruned = {}
@@ -33,8 +38,13 @@ def generate_manifest_file(folder, project, outfile, recursive):
         'fields': {'id': True, 'name': True, 'folder': True, 'parts': True }
       }
       output = dxpy.api.project_list_folder(project, input_params=inputs)
-      manifest[project] += [fileID2manifest(obj['describe'], project) for obj in output['objects']]
+    
+      entries = [fileID2manifest(obj['describe'], project) for obj in output['objects']]
+      manifest[project] += [entry for entry in entries if entry is not None]
       if recursive:
+        # TODO: Recursive API calls can be avoided consider:
+        #   /system/findDataObjects '{"class": "file", "describe"...}'
+        #   Then using describe 'folder' property to traverse project structure client-side
         for subf in output['folders']:
             add_folder_to_manifest(subf)
 
